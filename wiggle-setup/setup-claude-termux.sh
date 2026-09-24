@@ -23,7 +23,7 @@ die()  { printf '\033[1;31m[x] %s\033[0m\n' "$*" >&2; exit 1; }
     || die "Run this inside Termux, not inside Ubuntu/proot."
 
 DISTRO=ubuntu
-ROOTFS="$PREFIX/var/lib/proot-distro/installed-rootfs/$DISTRO"
+PD_DIR="$PREFIX/var/lib/proot-distro"
 LAUNCHER="$PREFIX/bin/wiggle-claude"
 CONFIG="$HOME/.wiggle-claude.conf"
 
@@ -97,11 +97,30 @@ if command -v npm >/dev/null 2>&1 && npm ls -g @anthropic-ai/claude-code >/dev/n
 fi
 
 # ---------------------------------------------------------------- 5. Ubuntu + Claude
-if [ ! -d "$ROOTFS" ]; then
-    say "Installing Ubuntu (one-time download, a few hundred MB)"
-    proot-distro install "$DISTRO"
-else
+# Some networks block Docker Hub (proot-distro's default source), so try
+# mirrors of the same official image, then Ubuntu's own base tarball.
+UBUNTU_SOURCES=(
+    "ubuntu:24.04"
+    "mirror.gcr.io/library/ubuntu:24.04"
+    "public.ecr.aws/docker/library/ubuntu:24.04"
+    "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz"
+)
+if [ -d "$PD_DIR/containers/$DISTRO" ] || [ -d "$PD_DIR/installed-rootfs/$DISTRO" ]; then
     say "Ubuntu already installed"
+else
+    say "Installing Ubuntu (one-time download, about 30-100 MB)"
+    installed=0
+    for src in "${UBUNTU_SOURCES[@]}"; do
+        echo "Trying: $src"
+        if proot-distro install --name "$DISTRO" "$src"; then
+            installed=1
+            break
+        fi
+        warn "That source failed; trying the next one"
+        proot-distro remove "$DISTRO" >/dev/null 2>&1 || true
+    done
+    [ "$installed" -eq 1 ] || die "Couldn't download Ubuntu from any source. Your network is blocking them;
+    turn on a VPN (e.g. the free Cloudflare 1.1.1.1 app) and re-run: bash setup.sh"
 fi
 
 say "Installing Claude Code inside Ubuntu"
@@ -114,7 +133,21 @@ proot-distro login "$DISTRO" -- /bin/bash -c '
     fi
     git config --global --add safe.directory "*"
     if [ ! -x "$HOME/.local/bin/claude" ]; then
-        curl -fsSL https://claude.ai/install.sh | bash
+        if ! { curl -fsSL --retry 3 -o /tmp/claude-install.sh https://claude.ai/install.sh \
+                && bash /tmp/claude-install.sh; }; then
+            # Fallback: the same native binary, published on the npm registry
+            echo "Official installer failed; downloading Claude Code from npm instead"
+            ver=$(curl -fsSL --retry 3 https://registry.npmjs.org/@anthropic-ai/claude-code-linux-arm64/latest \
+                | grep -o "\"version\":\"[^\"]*\"" | head -1 | cut -d\" -f4)
+            [ -n "$ver" ] || { echo "Could not reach the npm registry either"; exit 1; }
+            tmp=$(mktemp -d)
+            curl -fL --retry 3 -o "$tmp/c.tgz" \
+                "https://registry.npmjs.org/@anthropic-ai/claude-code-linux-arm64/-/claude-code-linux-arm64-$ver.tgz"
+            tar -xzf "$tmp/c.tgz" -C "$tmp"
+            mkdir -p "$HOME/.local/bin"
+            install -m 755 "$tmp/package/claude" "$HOME/.local/bin/claude"
+            rm -rf "$tmp"
+        fi
     fi
     grep -q ".local/bin" "$HOME/.bashrc" 2>/dev/null || echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$HOME/.bashrc"
     "$HOME/.local/bin/claude" --version
