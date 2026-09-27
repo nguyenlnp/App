@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS launchd agent: starts the bridge at login and restarts it if it stops.
+    1. Replace YOUR_USER below (and the PATH if claude lives elsewhere: run `which claude`).
+    2. cp deploy/com.claude.telegram.plist ~/Library/LaunchAgents/
+    3. launchctl load -w ~/Library/LaunchAgents/com.claude.telegram.plist
+  Logs: /tmp/claude-telegram.log
+  Stop: launchctl unload ~/Library/LaunchAgents/com.claude.telegram.plist
+  Tip: System Settings > Battery/Energy > prevent sleep, or run `caffeinate -s` so the Mac stays reachable.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claude.telegram</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/YOUR_USER/claude-telegram/bot.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/YOUR_USER/claude-telegram</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/YOUR_USER/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/claude-telegram.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/claude-telegram.log</string>
+</dict>
+</plist>

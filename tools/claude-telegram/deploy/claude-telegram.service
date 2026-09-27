@@ -1,0 +1,29 @@
+# systemd user service: keeps the bridge running 24/7 and restarts it on failure.
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/claude-telegram.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now claude-telegram
+#   sudo loginctl enable-linger "$USER"   # keep running after you log out / on boot
+#   journalctl --user -u claude-telegram -f   # logs
+#
+# Adjust the paths below if you put the folder somewhere other than ~/claude-telegram.
+
+[Unit]
+Description=Claude Code Telegram bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/claude-telegram
+Environment=ENV_FILE=%h/claude-telegram/.env
+# Make sure the claude CLI (and node, git, etc.) are found
+Environment=PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env python3 %h/claude-telegram/bot.py
+Restart=always
+RestartSec=5
+# Let Claude finish writing before a restart kills it
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target
