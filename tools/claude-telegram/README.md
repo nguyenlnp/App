@@ -18,7 +18,36 @@ Telegram group "Claude HQ" (Topics on)
 - **Locked to you.** Only the Telegram user ids in `ALLOWED_USER_IDS` can use it.
 - **Nothing to install** apart from Python 3.10+ and the Claude Code CLI. Standard library only.
 
-## Setup (about 10 minutes)
+## Android phone with Termux (one command)
+
+If Claude Code already works in Termux (`claude` opens and is logged in), run this in Termux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nguyenlnp/App/claude/claude-code-telegram-r6k4pv/tools/claude-telegram/install-termux.sh | bash
+```
+
+The installer:
+- installs Python and `termux-services`
+- downloads the bridge to `~/claude-telegram`
+- asks for your bot token and links your Telegram account (you send the bot one message)
+- sets it up as a service that restarts itself if it crashes
+- holds a wake lock and adds a Termux:Boot script so the bridge starts again after a reboot
+
+To manage it later: `claude-tg status | logs | restart | stop | config | update`.
+
+Android kills background apps aggressively, so do these once:
+1. **Battery:** Settings → Apps → Termux → Battery → *Unrestricted*.
+2. **Termux:Boot:** install it from the same store as Termux (F-Droid or GitHub) and open it once.
+3. **Phantom process killer (Android 12+):** on Android 14+, turn on Developer options → *Disable child process restrictions*. On Android 12–13, run this from a computer with adb: `adb shell device_config put activity_manager max_phantom_processes 2147483647`.
+
+If the repo is private, create a GitHub token with read access and download with it:
+
+```bash
+export GITHUB_TOKEN=ghp_xxx
+curl -fsSL -H "Authorization: token $GITHUB_TOKEN" https://raw.githubusercontent.com/nguyenlnp/App/claude/claude-code-telegram-r6k4pv/tools/claude-telegram/install-termux.sh | bash
+```
+
+## Setup on a computer or server (about 10 minutes)
 
 ### 1. Machine
 
